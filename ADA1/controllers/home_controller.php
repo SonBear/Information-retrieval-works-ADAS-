@@ -7,7 +7,7 @@
         $array = $data;
         $property = substr($prop, 0 , -4);
 
-        if (str_contains($prop, '_des')) { 
+        if (strpos($prop, '_des') !== false) { 
             usort($array, function ($a, $b) use(&$property) {
                 return (int) (strtolower($a->{$property}) < strtolower($b->{$property}));
             });
