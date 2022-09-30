@@ -1,4 +1,48 @@
 <?php
+
+    require_once __ROOT__.'/services/parser/CadenaCondition.php';
+
+    private class Token{
+        private $data = '';
+        private $raw_token = '';
+
+
+        function __construct($raw_token){
+            $this -> data = $this->getDataFromToken($raw_token);
+            $this -> raw_token = $raw_token;
+        }
+
+        private function getDataFromToken($token){
+            /**
+             * Logic insert
+             */
+
+            return $token;
+        }
+
+        public function checkToken($data_frag){
+            $current_token = $this->raw_token;
+            $new_data_frag = $data_frag;
+
+            if(substr_compare($current_token, 'cadena'))){
+                $data = getDataBetweenPar($current_token);
+                array_push($new_data_frag['conditions'], new CadenaCondition($this->data));
+
+            } else if(substr_compare($current_token, 'patron'))){
+                $data = getDataBetweenPar($current_token);
+                array_push($new_data_frag['conditions'] new CadenaCondition($data));
+
+            }
+
+            else if(in_array($OPERATORS, $current_token)){
+                $ops = $data_frag -> operators;
+                array_push($ops, $token);
+                $data_frag['operators'] = $ops;
+            }
+
+            return $data_frag;
+        }
+    }
     class ParserCL{
         private $TABLE_DAFAULT = 'products';
         private $ATTRIBUTES_DEFAULT = ['product_name', 'name', 'category'];
@@ -15,26 +59,31 @@
             ];
 
             $transformed_query = $this->setFunctionValuesToASCII($query);
-            
-            echo $transformed_query;
-            echo '</br>';
-
             $tokens = explode(" ", $transformed_query);
 
             $before_token = null;
             foreach($tokens as $token){
                 $current_token = strtolower($token);
 
-                echo $token;
-                echo '</br>';
+                $conds = $data_frag['conditions'];
+                if(substr_compare($current_token, 'cadena'))){
+                    $data = getDataBetweenPar($current_token);
+                    array_push($conds, new CadenaCondition($data));
+
+                } else if(substr_compare($current_token, 'patron'))){
+                    $data = getDataBetweenPar($current_token);
+                    array_push($conds, new CadenaCondition($data));
+
+                }
+
                 if($before_token != null && in_array($OPERATORS, $current_token)){
                     $ops = $data_frag -> operators;
                     array_push($ops, $token);
                     $data_frag['operators'] = $ops;
                 }
-            }
 
-            var_dump($data_frag);
+                $before_token = $current_token;
+            }
             return $data_frag;
         }    
 
