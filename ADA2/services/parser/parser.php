@@ -1,48 +1,12 @@
 <?php
 
     require_once __ROOT__.'/services/parser/CadenaCondition.php';
-
-    private class Token{
-        private $data = '';
-        private $raw_token = '';
+    require_once __ROOT__.'/services/parser/NormalCondition.php';
+    require_once __ROOT__.'/services/parser/PatronCondition.php';
 
 
-        function __construct($raw_token){
-            $this -> data = $this->getDataFromToken($raw_token);
-            $this -> raw_token = $raw_token;
-        }
+    require_once __ROOT__.'/services/tokenizer/Tokenizer.php';
 
-        private function getDataFromToken($token){
-            /**
-             * Logic insert
-             */
-
-            return $token;
-        }
-
-        public function checkToken($data_frag){
-            $current_token = $this->raw_token;
-            $new_data_frag = $data_frag;
-
-            if(substr_compare($current_token, 'cadena'))){
-                $data = getDataBetweenPar($current_token);
-                array_push($new_data_frag['conditions'], new CadenaCondition($this->data));
-
-            } else if(substr_compare($current_token, 'patron'))){
-                $data = getDataBetweenPar($current_token);
-                array_push($new_data_frag['conditions'] new CadenaCondition($data));
-
-            }
-
-            else if(in_array($OPERATORS, $current_token)){
-                $ops = $data_frag -> operators;
-                array_push($ops, $token);
-                $data_frag['operators'] = $ops;
-            }
-
-            return $data_frag;
-        }
-    }
     class ParserCL{
         private $TABLE_DAFAULT = 'products';
         private $ATTRIBUTES_DEFAULT = ['product_name', 'name', 'category'];
@@ -59,30 +23,55 @@
             ];
 
             $transformed_query = $this->setFunctionValuesToASCII($query);
-            $tokens = explode(" ", $transformed_query);
 
-            $before_token = null;
+            $tokenizer = new Tokenizer($transformed_query );
+            $tokens = $tokenizer -> tokens;
+
+            $before_type = null;
             foreach($tokens as $token){
-                $current_token = strtolower($token);
+                $type = $token -> type;
 
-                $conds = $data_frag['conditions'];
-                if(substr_compare($current_token, 'cadena'))){
-                    $data = getDataBetweenPar($current_token);
-                    array_push($conds, new CadenaCondition($data));
-
-                } else if(substr_compare($current_token, 'patron'))){
-                    $data = getDataBetweenPar($current_token);
-                    array_push($conds, new CadenaCondition($data));
-
+                if($type != 'OPERATOR' && $before_type != 'OPERATOR'){
+                    array_push($data_frag['operators'], 'OR');
                 }
 
-                if($before_token != null && in_array($OPERATORS, $current_token)){
-                    $ops = $data_frag -> operators;
-                    array_push($ops, $token);
-                    $data_frag['operators'] = $ops;
+                switch($type){
+                    case 'FUNCTION':
+                        switch($token->name){
+                            case 'PATRON':
+                                array_push($data_frag['conditions'], new PatronCondition(str_ireplace('-',' ', $token->value)));
+                                break;
+                            case 'CADENA':
+                                array_push($data_frag['conditions'], new CadenaCondition(str_ireplace('-',' ', $token->value)));
+                                break;
+                            case 'CAMPOS':
+                                $value = str_ireplace('-', '', $token->value);
+
+                                $attributes = explode(',', $value);
+
+                                $table = '';
+                                $new_attributes = [];
+                                foreach($attributes as $attr){
+                                   $table_attr = explode('.', $attr);
+                                   $table = $table_attr[0];
+                                   array_push($new_attributes, $table_attr[1]);
+                                }
+                                $data_frag['table'] = $table;
+                                $data_frag['attributes'] = $new_attributes;
+                                break;
+                        }
+                        break;
+                    case 'WORD':
+                        array_push($data_frag['conditions'], new NormalCondition($token->value));
+                        break;
+                    case 'OPERATOR':
+                        array_push($data_frag['operators'], $token->value);
+                        break;
                 }
 
-                $before_token = $current_token;
+               
+
+                $before_type = $type;                
             }
             return $data_frag;
         }    
@@ -102,17 +91,15 @@
                     $end_par_pos = $i;
                 }
 
+                $delta = $end_par_pos - $init_par_pos;
                 if(($end_par_pos - $init_par_pos) > 0){
-                    $value = substr($transformed_query, $init_par_pos, $end_par_pos);
-
+                    $value = substr($transformed_query , $init_par_pos, $delta + 1);
                     $new_value = str_replace(' ', '-', $value);
-                    $transformed_query = substr_replace($transformed_query, $new_value, $init_par_pos, $end_par_pos);
+
+                    $transformed_query = substr_replace($transformed_query, $new_value, $init_par_pos, $delta + 1);
 
                     $init_par_pos = 0;
                     $end_par_pos = 0;
-
-                    echo $transformed_query;
-                    echo '</br>';
                 }
             }
             return $transformed_query;

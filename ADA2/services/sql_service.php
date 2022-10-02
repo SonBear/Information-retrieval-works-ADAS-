@@ -2,7 +2,7 @@
 class SQLService{
     public $servername = "localhost";
     public $username = "root";
-    public $password = "password";
+    public $password = "admin";
     public $dbname = "northwind";
     private $conn = null;
 
@@ -38,7 +38,7 @@ class SQLService{
     function search_sql($sql_query){
         $result = $this->conn->query($sql_query);
 
-        if ($result->num_rows > 0) {
+        if (($result->num_rows) > 0) {
             // output data of each row
             $results = [];
             while($row = $result->fetch_assoc()) {
