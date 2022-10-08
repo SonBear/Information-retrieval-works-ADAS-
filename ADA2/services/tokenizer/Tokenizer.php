@@ -18,9 +18,9 @@
             foreach($raw_tokens as $raw_token){
                 $token = new Token($raw_token);
                 $token_type = $token->type;
+
                 array_push($this->tokens, $token);
                 $this->tokens_size += 1;
-                
 
                 if($before_type == 'OPERATOR' && $before_type == $token->type){
                     throw new Exception('BAD STRUCT STRING QUERY', 1);

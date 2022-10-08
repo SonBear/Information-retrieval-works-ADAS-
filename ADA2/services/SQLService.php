@@ -2,7 +2,7 @@
 class SQLService{
     public $servername = "localhost";
     public $username = "root";
-    public $password = "admin";
+    public $password = "password";
     public $dbname = "northwind";
     private $conn = null;
 

@@ -7,9 +7,9 @@
 
     require_once __ROOT__.'/services/tokenizer/Tokenizer.php';
 
-    class ParserCL{
+    class Parser{
         private $TABLE_DAFAULT = 'products';
-        private $ATTRIBUTES_DEFAULT = ['product_name', 'name', 'category'];
+        private $ATTRIBUTES_DEFAULT = ['product_name', 'quantity_per_unit', 'category'];
 
         private $OPERATORS = ['and', 'or'];
         private $FUNCTIONS = ['cadena', 'patron'];
@@ -31,7 +31,7 @@
             foreach($tokens as $token){
                 $type = $token -> type;
 
-                if($type != 'OPERATOR' && $before_type != 'OPERATOR'){
+                if($type != 'OPERATOR' && $before_type != 'OPERATOR' && $before_type != null){
                     array_push($data_frag['operators'], 'OR');
                 }
 

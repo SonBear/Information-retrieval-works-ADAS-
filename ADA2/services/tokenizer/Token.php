@@ -1,7 +1,7 @@
 <?php 
     class Token{
         private $OPERATORS = ['AND', 'OR'];
-
+        private $NO_VALUES = ['', ' '];
         public $value;
         public $name;
         public $type;
@@ -13,6 +13,11 @@
 
         function assign_values($string){
             $pars = [];
+
+            if(in_array($string, $this->NO_VALUES)){
+                $this->type = 'NO-VALUE';
+                return;
+            }
 
             if(in_array($string, $this->OPERATORS)){
                 $this->value = $string;
