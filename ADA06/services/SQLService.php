@@ -56,4 +56,13 @@ class SQLService
             return [];
         }
     }
+
+    function create_query($sql_query)
+    {
+        if ($this->conn->query($sql_query) === TRUE) {
+            echo "New record created successfully";
+        } else {
+            echo "Error: " . $sql_query . "<br>" . $this->conn->error;
+        }
+    }
 }
