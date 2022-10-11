@@ -1,6 +1,5 @@
 <?php
-    interface ConditionSQL{
-        public function getConditionSQL($attribute);    
-    }
-
-?>
+interface ConditionSQL
+{
+    public function getConditionSQL($attribute);
+}
