@@ -3,17 +3,17 @@ class Document
 {
     public $id;
     public $name;
-    public $desciption;
+    public $description;
     public $uri;
 
-    function __construct($id, $uri, $name, $desciption = null)
+    function __construct($id, $uri, $name, $description = null)
     {
         $this->id = $id;
         $this->name = $name;
         $this->uri = $uri;
-        $this->desciption = $desciption;
-        if ($desciption == null) {
-            $this->desciption = '';
+        $this->description = $description;
+        if ($description == null) {
+            $this->description = '';
         }
     }
 }

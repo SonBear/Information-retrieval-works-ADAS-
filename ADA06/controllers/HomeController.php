@@ -5,6 +5,11 @@ require_once __ROOT__ . '/services/SQLService.php';
 require_once __ROOT__ . '/services/parser/ParserSQL.php';
 require_once __ROOT__ . '/services/parser/Parser.php';
 
+require_once __ROOT__ . '/services/DocumentService.php';
+require_once __ROOT__ . '/models/Document.php';
+
+
+
 // Instances
 $parser_sql = new ParserSQL();
 $sql_service = new SQLService;
@@ -14,8 +19,12 @@ $parser_service = new Parser();
 $results = [];
 // Get data from text field
 if (isset($_GET['fsearch'])) {
-    $query = $_GET['fsearch'];
 
+    $doc = new DocumentService();
+
+    $query = $_GET['fsearch'];
+    $newdata = $doc->save(new Document(null, $query, 'hola', 'descriptioasdsn'));
+    echo var_dump($newdata);
     if ($query != '') {
         try {
             //Get table name, attributes, operators and conditions
