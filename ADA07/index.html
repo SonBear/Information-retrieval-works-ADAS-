@@ -56,6 +56,7 @@
                     id="query"
                     placeholder="search..."
                     required="true"
+                    onkeydown="expandTerms(this)"
                   />
                 </div>
 
@@ -81,21 +82,26 @@
         <div class="row">
           <div class="col-md-2">
             <div>
-              <input type="checkbox" name="sdasd" id="" title="dsadasd" />
-              European searcher
+              <input
+                type="checkbox"
+                name="sdasd"
+                id="europeanaCB"
+                title="dsadasd"
+              />
+              Europeana searcher
             </div>
             <div>
-              <input type="checkbox" name="" id="" />
+              <input type="checkbox" name="" id="PLOSCB" />
               PLOS searcher
             </div>
           </div>
           <div class="col">
-            <div id="cards-container" class="d-flex flex-wrap" style="">
+            <div id="cards-container" class="d-flex flex-wrap">
               <div class="p-2 flex-fill bd-highlight">
                 <div class="thumb">
                   <img src="img/popular_item_1.jpg" alt="" />
                   <div class="text-content">
-                    <h4>Mauris tempus</h4>
+                    <h4>Maurisddddd tempus</h4>
                     <span>76 listings</span>
                   </div>
                   <div class="plus-button">
@@ -104,25 +110,6 @@
                 </div>
               </div>
             </div>
-            <nav aria-label="Page navigation example">
-              <ul class="pagination">
-                <li class="page-item">
-                  <a class="page-link" href="#" aria-label="Previous">
-                    <span aria-hidden="true">&laquo;</span>
-                    <span class="sr-only">Previous</span>
-                  </a>
-                </li>
-                <li class="page-item"><a class="page-link" href="#">1</a></li>
-                <li class="page-item"><a class="page-link" href="#">2</a></li>
-                <li class="page-item"><a class="page-link" href="#">3</a></li>
-                <li class="page-item">
-                  <a class="page-link" href="#" aria-label="Next">
-                    <span aria-hidden="true">&raquo;</span>
-                    <span class="sr-only">Next</span>
-                  </a>
-                </li>
-              </ul>
-            </nav>
           </div>
         </div>
       </div>
@@ -132,12 +119,7 @@
       <div class="container">
         <div class="row">
           <div class="col-md-5">
-            <div class="">
-              <div class="logo">
-                <img src="img/footer_logo.png" alt="Venue Logo" />
-              </div>
-              <p></p>
-            </div>
+            <div class=""></div>
           </div>
         </div>
       </div>
