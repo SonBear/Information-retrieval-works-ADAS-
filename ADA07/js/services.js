@@ -96,8 +96,8 @@ function getCardEuropean(doc) {
               </div>`;
 }
 function searchData() {
-  var query = document.getElementById('query').value;
-
+  var query = getAllQueries();
+  console.log(query);
   var responsePromises = getResponseFromAPIs(query);
 
   Promise.all(responsePromises)
@@ -112,6 +112,22 @@ function searchData() {
     .catch((error) => {
       alert(error);
     });
+}
+
+function getAllQueries() {
+  let query = '';
+
+  const queryInputs = [...document.getElementsByClassName('query-input')];
+
+  queryInputs.forEach((input, idx) => {
+    const value = input.value;
+    if (value != '') {
+      if (idx > 0) query += ' AND ' + input.value;
+      else query += input.value;
+    }
+  });
+
+  return query;
 }
 
 function getResponseFromAPIs(query) {
@@ -154,6 +170,52 @@ async function expandTerms(input) {
   });
 }
 
+let id_input = 0;
+function addInputSearch(btn) {
+  let inputContainer = document.getElementById('input-container');
+
+  let p = document.createElement('div');
+  p.className = 'col-md-1 label-and';
+  p.id = 'AND-' + id_input;
+  p.innerHTML = '<p>AND</p>';
+
+  inputContainer.appendChild(p);
+  let input = document.createElement('div');
+  input.className = 'col-md-3';
+  input.id = 'input-' + id_input++;
+  input.innerHTML = getInputSearch();
+
+  inputContainer.appendChild(input);
+}
+
+function deleteInput(btn) {
+  let inputContainer = document.getElementById('input-container');
+
+  let input = btn.parentNode.parentNode;
+
+  let id_arr = input.id.split('-');
+
+  let p = document.getElementById('AND-' + id_arr[1]);
+  inputContainer.removeChild(input);
+  inputContainer.removeChild(p);
+
+  id_input--;
+}
+
+function getInputSearch() {
+  return `    <div class="row input-term">
+
+            <input
+              name="search"
+              type="text"
+              class="form-control col-md-6 query-input"
+              placeholder="search..."
+              required="true"
+              oninput="expandTerms(this)"
+            />
+            <button onclick="deleteInput(this)" class="col-md-1">x</button>
+          </div>`;
+}
 /**AUTOCOMPLETE */
 function autocomplete(inp, arr) {
   /*the autocomplete function takes two arguments,
@@ -194,7 +256,7 @@ function autocomplete(inp, arr) {
         inp.value = this.getElementsByTagName('input')[0].value;
         /*close the list of autocompleted values,
               (or any other open lists of autocompleted values:*/
-        closeAllLists();
+        closeAllLists(inp);
       });
       a.appendChild(b);
     }

@@ -4,6 +4,32 @@
     display: inline-block;
 }
 
+.label-and{
+    padding: 7px;
+    margin: 0;
+    text-align: center;
+}
+
+.submit-form{
+    width: 100%;
+    padding: 2rem;
+    margin: auto;
+}
+
+#input-container{
+    padding: 0%;
+    margin: auto;
+}
+
+.input-term{
+    padding: 0%;
+    margin: 0;
+    
+}
+
+.btn{
+    margin-top: 1rem;
+}
 input {
     border: 1px solid transparent;
     background-color: #f1f1f1;
