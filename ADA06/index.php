@@ -1,20 +1,18 @@
 <?php
-$root = __DIR__;
-define('__ROOT__', $root);
+define('_ROOT_', __DIR__);
 
-$URI_BASE = $_SERVER['REQUEST_URI'];
-define('__ROOT_URI__', $URI_BASE);
+require _ROOT_ . "/inc/bootstrap.php";
 
-$url = 'C:\Users\IGNITER\Desktop\test.txt';
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$uri = explode('/', $uri);
 
-# save document
-
-
-$section = file_get_contents($url, FALSE);
-$section = preg_replace('/[.,]/', '', $section);
-foreach ((explode(' ', $section)) as $word) {
+if (($uri[3] !== 'documents')) {
+    header("HTTP/1.1 404 Not Found");
+    exit();
 }
-var_dump($section);
 
+require _ROOT_ . "/Controller/Api/DocumentController.php";
 
-require_once __DIR__ . '/controllers/HomeController.php';
+$objFeedController = new DocumentController();
+$strMethodName = $uri[3] . 'Action';
+$objFeedController->{$strMethodName}();
