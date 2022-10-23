@@ -6,8 +6,8 @@
 $dsn = 'mysql:host=127.0.0.1;dbname=indexing_searching';
 $pdo = new PDO(
     $dsn,
-    'root',
-    'password',
+    'root', //user
+    'password', //password
 );
 
 
@@ -203,26 +203,191 @@ function getVectorFromQuery($query)
             $indexedWords[$word] += 1;
     }
 
+    $vectorTfIdf = [];
     //calculate tf-idf vector in query
     foreach (array_keys($indexedWords) as $index) {
-        $indexedWords[$index] *= $vectorIdf[$index];
+        array_push($vectorTfIdf, $indexedWords[$index] * $vectorIdf[$index]);
     }
 
 
-    return $indexedWords;
+    return $vectorTfIdf;
 }
 
+
+/**
+ * Get all documents in DB
+ */
+function getDocuments()
+{
+    $pdo = $GLOBALS['pdo'];
+    $statement = $pdo->prepare("SELECT * FROM documents");
+    $statement->execute();
+
+
+    $response = $statement->fetchAll();
+
+    $documents = [];
+    foreach ($response as $tuple) {
+        array_push($documents, ['id' => $tuple['id'], 'name' => $tuple['name'], 'description' => $tuple['description'], 'uri' => $tuple['uri']]);
+    }
+
+    return $documents;
+}
+
+/**
+ * Get vector tf-idf from one document
+ */
+function getVectorTfIdfForDocument($documentId)
+{
+    $pdo = $GLOBALS['pdo'];
+    $statement = $pdo->prepare("SELECT TF_VECTOR.word, (idf * count) as 'tf-idf' FROM ( 
+	(SELECT word, LOG10((SELECT COUNT(id) FROM documents) / COUNT(doc_id)) 
+	AS idf FROM dictionary GROUP BY word) AS IDF_VECTOR
+JOIN
+   		(SELECT A.word, IFNULL(value, 0) as count FROM (
+		(SELECT word from  dictionary
+		GROUP BY word) AS A
+	LEFT JOIN 
+    	(SELECT word, SUM(count) AS value
+		FROM dictionary WHERE doc_id = ? 
+		GROUP BY word) AS B
+	ON A.word = B.word) ORDER BY word) AS TF_VECTOR
+ON IDF_VECTOR.word = TF_VECTOR.word
+)");
+
+    $statement->execute([$documentId]);
+
+
+    $response = $statement->fetchAll();
+
+    $vectorTfIdf = [];
+    foreach ($response as $tuple) {
+        array_push($vectorTfIdf, $tuple['tf-idf']);
+    }
+
+    return $vectorTfIdf;
+}
+
+/**
+ * Calculates dot product from vectors
+ */
+function getDotProduct($vectorN1, $vectorN2)
+{
+    $products =
+        array_map(function ($a, $b) {
+            return $a * $b;
+        }, $vectorN1, $vectorN2);
+    return array_reduce($products, function ($a, $b) {
+        return $a + $b;
+    });
+}
+
+/**
+ * Calculates lenght from vector
+ */
+function getLenght($vectorN1)
+{
+    $squres = array_map(function ($a) {
+        return $a ** 2;
+    }, $vectorN1);
+
+    $sumSqures = array_reduce($squres, function ($a, $b) {
+        return $a + $b;
+    });
+
+    return sqrt($sumSqures);
+}
+
+/**
+ * Calculate score from two vectors using cosine similarity
+ */
+function getScoreFrom($vectorN1, $vectorN2)
+{
+    $dotProduct = getDotProduct($vectorN1, $vectorN2);
+
+    $lenghtV1 = getLenght($vectorN1);
+    $lenghtV2 = getLenght($vectorN2);
+
+    if (($lenghtV1 * $lenghtV2) == 0) {
+        return 0;
+    }
+    $score = $dotProduct / ($lenghtV1 * $lenghtV2);
+
+    return $score;
+}
+
+
+/**
+ * Set score attribute to documents
+ */
+function setDocumentsScore($documents, $vectorQuery)
+{
+    $documentsWithScore = [];
+    foreach ($documents as $document) {
+        $newDocument = $document;
+        $vectorTfIdf = getVectorTfIdfForDocument($document['id']);
+        $newDocument['score'] = getScoreFrom($vectorTfIdf, $vectorQuery);
+
+        array_push($documentsWithScore, $newDocument);
+    }
+
+
+
+    return $documentsWithScore;
+}
+
+/**
+ * Function to sort array on key
+ */
+function array_sort($array, $on, $order = SORT_DESC)
+{
+    $new_array = array();
+    $sortable_array = array();
+
+    if (count($array) > 0) {
+        foreach ($array as $k => $v) {
+            if (is_array($v)) {
+                foreach ($v as $k2 => $v2) {
+                    if ($k2 == $on) {
+                        $sortable_array[$k] = $v2;
+                    }
+                }
+            } else {
+                $sortable_array[$k] = $v;
+            }
+        }
+
+        switch ($order) {
+            case SORT_ASC:
+                asort($sortable_array);
+                break;
+            case SORT_DESC:
+                arsort($sortable_array);
+                break;
+        }
+
+        foreach ($sortable_array as $k => $v) {
+            $new_array[$k] = $array[$k];
+        }
+    }
+
+    return $new_array;
+}
 
 if (isset($_POST['post_document'])) {
     indexDocument();
 }
 
 
-$vectorQuery = '';
+$documents = [];
 
 if (isset($_GET['query'])) {
 
     $vectorQuery = getVectorFromQuery($_GET['query']);
+    $documents = getDocuments();
+
+    $documents = setDocumentsScore($documents, $vectorQuery);
+    $documents = array_sort($documents, 'score');
 }
 
 ?>
@@ -236,26 +401,41 @@ if (isset($_GET['query'])) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
     <!-- The data encoding type, enctype, MUST be specified as below -->
-    <form enctype="multipart/form-data" action="" method="POST">
-        <!-- MAX_FILE_SIZE must precede the file input field -->
-        <input type="hidden" name="MAX_FILE_SIZE" value="30000" />
-        <!-- Name of input element determines name in $_FILES array -->
-        Send this file: <input name="document" type="file" />
-        <input type="submit" value="Send File" name="post_document" />
-    </form>
+    <div class="container">
+        <form enctype="multipart/form-data" action="" method="POST">
+            <!-- MAX_FILE_SIZE must precede the file input field -->
+            <input type="hidden" name="MAX_FILE_SIZE" value="30000" />
+            <!-- Name of input element determines name in $_FILES array -->
+            Send this file: <input name="document" type="file" />
+            <input type="submit" value="Send File" name="post_document" />
+        </form>
 
-    <form action="" method="GET">
-        <input type="text" name="query" id="query">
-        <input type="submit" value="Send File" name="post_document" />
-    </form>
+        <form action="" method="GET">
+            <input type="text" name="query" id="query">
+            <input type="submit" value="Search" name="post_document" />
+        </form>
+    </div>
 
-    <?php
-    echo "<p>" . var_dump($vectorQuery) . "</p>"
-    ?>
+    <div class="container">
+        <?php
+        foreach ($documents as $doc) {
+            echo ("<div class='row'>
+            <h3>" . $doc['name'] . "</h3>
+            <p>" . $doc['description'] . "</p>
+            <a href='url'>" . $doc['uri'] . "</a>
+            <p>" . $doc['score'] . "</p>
+            <p></p>
+            </div>");
+        }
+        ?>
+
+    </div>
+
 
 </body>
 
