@@ -1,185 +1,16 @@
 <?php
 
-/**
- * Init PDO for mysql server.
- */
-$dsn = 'mysql:host=127.0.0.1;dbname=indexing_searching';
-$pdo = new PDO(
-    $dsn,
-    'root', //user
-    'password', //password
-);
 
+require_once __DIR__ . '\database.php';
+require_once __DIR__ . '\math.php';
+require_once __DIR__ . '\util.php';
+require_once __DIR__ . '\indexer.php';
 
 /**
  * Define upload documents directory.
  */
 define('_DIRDOCS_', __DIR__ . '\uploads\docs\\');
 
-/**
- * Save document in server.
- */
-function saveDocument()
-{
-    if (($_FILES['document']['name'] != "")) {
-        $file = $_FILES['document']['name'];
-        $path = pathinfo($file);
-        $filename = $path['filename'];
-        $ext = $path['extension'];
-        $temp_name = $_FILES['document']['tmp_name'];
-
-        $path_filename_ext = _DIRDOCS_ . uniqid(rand(), false)  . "." . $ext;
-        move_uploaded_file($temp_name, $path_filename_ext);
-        echo "Congratulations! File Uploaded Successfully.";
-
-        $document = saveDocumentDB($filename, $path_filename_ext);
-        return $document;
-    }
-    return [];
-}
-
-/**
- * Save document tuple in database
- */
-function saveDocumentDB($name, $uri, $description = "Documento nuevo")
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("INSERT INTO documents (id, name, description, uri) VALUES (?, ?, ?, ?)");
-    $statement->execute([null, $name, $description, $uri]);
-
-    $statement->closeCursor();
-
-    $document_id = $pdo->lastInsertId();
-    return ['id' => $document_id, 'name' => $name, 'description' => $description, 'uri' => $uri];
-}
-
-/**
- * Get inverse index of file
- */
-function getInvertedIndex($fileDir)
-{
-    $filecontents = file_get_contents($fileDir);
-
-    $originalWords = preg_split('/[\s]+/', $filecontents, -1, PREG_SPLIT_NO_EMPTY);
-    $contentWithoutPunctuation = str_replace(['?', '!', '.', ',', '(', ')'], '', $filecontents);
-    $words = preg_split('/[\s]+/', $contentWithoutPunctuation, -1, PREG_SPLIT_NO_EMPTY);
-
-    $inversedIndex = [];
-
-    $n_words = sizeof($words);
-    for ($pos = 1; $pos <= $n_words; $pos++) {
-        $wordKey = strtolower($words[$pos - 1]);
-
-        $init = abs((($pos - 6) % $n_words));
-        $example = implode(" ", array_slice($originalWords, $init, 12));
-        $posting = [
-            'pos' => $pos,
-            'example' => $example
-        ];
-
-        if (isset($inversedIndex[$wordKey])) {
-            $inversedIndex[$wordKey]['count'] += 1;
-            array_push($inversedIndex[$wordKey]['postings'], $posting);
-        } else {
-            $inversedIndex[$wordKey] = ['count' => 1, 'postings' => [$posting]];
-        }
-    }
-
-    return $inversedIndex;
-}
-
-/**
- * Save dictionary tuple in database.
- */
-function saveDictionary($document, $wordKey, $count)
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("INSERT INTO dictionary (id, doc_id, word, count) VALUES (?, ?, ?, ?)");
-    $statement->execute([null, $document['id'], $wordKey, $count]);
-
-    $statement->closeCursor();
-
-    $dictionary_id = $pdo->lastInsertId();
-    return ['id' => $dictionary_id, 'doc_id' => $document['id'], 'count' => $count];
-}
-
-/**
- * Save posting tuple in database.
- */
-function savePostings($document, $dictionary, $pos, $example)
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("INSERT INTO postings (id, doc_id, dic_id, pos, example) VALUES (?, ?, ?, ?, ?)");
-    $statement->execute([null, $document['id'], $dictionary['id'], $pos, $example]);
-
-    $statement->closeCursor();
-
-    $posting_id = $pdo->lastInsertId();
-    return ['$id' => $posting_id, 'doc_id' => $document['id'], 'dic_id' => $dictionary['id'], 'pos' => $pos, 'example' => $example];
-}
-
-
-/**
- * Index all document
- */
-function indexDocument()
-{
-    $document = saveDocument();
-    $inversedIndex = getInvertedIndex($document['uri']);
-
-    $indexs = array_keys($inversedIndex);
-    foreach ($indexs as $index) {
-
-        $dictionary = saveDictionary($document, $index, $inversedIndex[$index]['count']);
-        $postings = $inversedIndex[$index]['postings'];
-        foreach ($postings as $posting) {
-            savePostings($document, $dictionary, $posting['pos'], $posting['example']);
-        }
-    }
-    echo var_dump('documento indexado');
-}
-
-
-/**
- * Get all words from database in inverse index.
- */
-function getIndexedWords()
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("SELECT word from dictionary GROUP BY word ORDER BY word");
-    $statement->execute();
-
-
-    $words = $statement->fetchAll();
-
-    $indexedWords = [];
-
-    foreach ($words as $word) {
-        $indexedWords[$word['word']] = 0;
-    }
-    return $indexedWords;
-}
-
-/**
- * Obtain idf vector from database.
- */
-function getIdfVector()
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("SELECT word, LOG10((SELECT COUNT(id) FROM documents) / COUNT(doc_id)) 
-	AS idf FROM dictionary GROUP BY word;");
-    $statement->execute();
-
-
-    $response = $statement->fetchAll();
-
-    $vectorIdf = [];
-
-    foreach ($response as $row) {
-        $vectorIdf[$row['word']] = $row['idf'];
-    }
-    return $vectorIdf;
-}
 
 /**
  * Transform query into vector tf-idf.
@@ -213,110 +44,6 @@ function getVectorFromQuery($query)
     return $vectorTfIdf;
 }
 
-
-/**
- * Get all documents in DB
- */
-function getDocuments()
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("SELECT * FROM documents");
-    $statement->execute();
-
-
-    $response = $statement->fetchAll();
-
-    $documents = [];
-    foreach ($response as $tuple) {
-        array_push($documents, ['id' => $tuple['id'], 'name' => $tuple['name'], 'description' => $tuple['description'], 'uri' => $tuple['uri']]);
-    }
-
-    return $documents;
-}
-
-/**
- * Get vector tf-idf from one document
- */
-function getVectorTfIdfForDocument($documentId)
-{
-    $pdo = $GLOBALS['pdo'];
-    $statement = $pdo->prepare("SELECT TF_VECTOR.word, (idf * count) as 'tf-idf' FROM ( 
-	(SELECT word, LOG10((SELECT COUNT(id) FROM documents) / COUNT(doc_id)) 
-	AS idf FROM dictionary GROUP BY word) AS IDF_VECTOR
-JOIN
-   		(SELECT A.word, IFNULL(value, 0) as count FROM (
-		(SELECT word from  dictionary
-		GROUP BY word) AS A
-	LEFT JOIN 
-    	(SELECT word, SUM(count) AS value
-		FROM dictionary WHERE doc_id = ? 
-		GROUP BY word) AS B
-	ON A.word = B.word) ORDER BY word) AS TF_VECTOR
-ON IDF_VECTOR.word = TF_VECTOR.word
-)");
-
-    $statement->execute([$documentId]);
-
-
-    $response = $statement->fetchAll();
-
-    $vectorTfIdf = [];
-    foreach ($response as $tuple) {
-        array_push($vectorTfIdf, $tuple['tf-idf']);
-    }
-
-    return $vectorTfIdf;
-}
-
-/**
- * Calculates dot product from vectors
- */
-function getDotProduct($vectorN1, $vectorN2)
-{
-    $products =
-        array_map(function ($a, $b) {
-            return $a * $b;
-        }, $vectorN1, $vectorN2);
-    return array_reduce($products, function ($a, $b) {
-        return $a + $b;
-    });
-}
-
-/**
- * Calculates lenght from vector
- */
-function getLenght($vectorN1)
-{
-    $squres = array_map(function ($a) {
-        return $a ** 2;
-    }, $vectorN1);
-
-    $sumSqures = array_reduce($squres, function ($a, $b) {
-        return $a + $b;
-    });
-
-    return sqrt($sumSqures);
-}
-
-/**
- * Calculate score from two vectors using cosine similarity
- */
-function getScoreFrom($vectorN1, $vectorN2)
-{
-    $dotProduct = getDotProduct($vectorN1, $vectorN2);
-
-    $lenghtV1 = getLenght($vectorN1);
-    $lenghtV2 = getLenght($vectorN2);
-
-    if (($lenghtV1 * $lenghtV2) == 0) {
-        return 0;
-    }
-    $score = $dotProduct / ($lenghtV1 * $lenghtV2);
-
-    return $score;
-}
-
-
 /**
  * Set score attribute to documents
  */
@@ -337,55 +64,229 @@ function setDocumentsScore($documents, $vectorQuery)
 }
 
 /**
- * Function to sort array on key
+ * Get all documents that have all words in string.
  */
-function array_sort($array, $on, $order = SORT_DESC)
+function getCadenaQueryDocuments($param)
 {
-    $new_array = array();
-    $sortable_array = array();
+    $words = preg_split('/[\s]+/', $param, -1, PREG_SPLIT_NO_EMPTY);
+    $nWords = sizeof($words);
 
-    if (count($array) > 0) {
-        foreach ($array as $k => $v) {
-            if (is_array($v)) {
-                foreach ($v as $k2 => $v2) {
-                    if ($k2 == $on) {
-                        $sortable_array[$k] = $v2;
+    if ($nWords == 0) {
+        return [];
+    }
+    if ($nWords == 1) {
+        return getNormalQueryDocuments($param);
+    }
+
+    $documentsMatch = getPositionsOfWords($words);
+    $documents = [];
+    $checkOtherWord = true;
+    foreach (array_keys($documentsMatch) as $docID) {
+
+        for ($i = 0; $i < ($nWords - 1); $i++) {
+            if (!$checkOtherWord && $i != 0)
+                break;
+
+            $checkOtherWord = false;
+            $wordsIndex = $documentsMatch[$docID];
+
+            if (!isset($wordsIndex[$words[$i]])) {
+                break;
+            }
+            if (!isset($wordsIndex[$words[$i + 1]])) {
+                break;
+            }
+            $posCurrentDocument = $wordsIndex[$words[$i]];
+            $posNextDocument = $wordsIndex[$words[$i + 1]];
+
+            foreach ($posCurrentDocument as $currentPos) {
+                foreach ($posNextDocument as $nextPos) {
+
+                    $posC = $currentPos['pos'];
+                    $posN = $nextPos['pos'];
+
+
+                    if (abs($posN - $posC) === 1) {
+                        $checkOtherWord = true;
+                        array_push($documents, $currentPos);
+                        array_push($documents, $nextPos);
                     }
                 }
-            } else {
-                $sortable_array[$k] = $v;
             }
-        }
-
-        switch ($order) {
-            case SORT_ASC:
-                asort($sortable_array);
-                break;
-            case SORT_DESC:
-                arsort($sortable_array);
-                break;
-        }
-
-        foreach ($sortable_array as $k => $v) {
-            $new_array[$k] = $array[$k];
         }
     }
 
-    return $new_array;
+    $documentsIndex = [];
+    foreach ($documents as $document) {
+        $docID = $document['id'];
+
+        if (isset($documentsIndex[$docID])) {
+            $doc = $documentsIndex[$docID];
+            $doc['example'] = $doc['example'] . '........' . $document['example'];
+            $documentsIndex[$docID] = $doc;
+        } else {
+            $documentsIndex[$docID] = ['id' => $docID, 'example' => $document['example'], 'query' => $param];
+        }
+    }
+
+    return $documentsIndex;
 }
 
+
+/** 
+ * Process operators in query 
+ * */
+function processDocumentsWithOperators($documentsResults, $operators)
+{
+    $nResults = sizeof($documentsResults);
+    if ($nResults == 0) {
+        return [];
+    }
+    if ($nResults == 1) {
+        return $documentsResults[0];
+    }
+
+
+    $currentIndex = 0;
+    $currentDocuments = $documentsResults[$currentIndex];
+    foreach ($operators as $op) {
+        if ($op == 'AND') {
+            $currentDocuments = array_intersect($currentDocuments, $documentsResults[$currentIndex + 1]);
+        } else {
+            $currentDocuments = array_unique(array_merge($currentDocuments, $documentsResults[$currentIndex + 1]));
+        }
+
+        $currentIndex += 1;
+    }
+
+    return $currentDocuments;
+}
+
+/**
+ * Get function query name.
+ */
+function extfn_name($input)
+{
+    $regex = "/\(.*?\)/";
+    return preg_replace($regex, "", $input);
+}
+
+/**
+ * Get params of function in query.
+ */
+function extparams($input)
+{
+    $input = str_replace("'", "", $input);
+    $matches = array();
+    $regex = "#\((([^()]+|(?R))*)\)#";
+    if (preg_match($regex, $input, $matches)) {
+        return $matches[1];
+    } else {
+        return $input;
+    }
+}
+/**
+ * Process query to get documents.
+ */
+function getDocumentsFromQuery($query)
+{
+    $tokens = array();
+    preg_match_all('/\w+\(.*?\)|\w+/', $query, $tokens);
+
+    $operators = [];
+    $isOperatorLastToken = false;
+    $index = 0;
+    $documentsIds = [];
+    $documentsIndexs = [];
+    foreach ($tokens[0] as $token) {
+        $name = extfn_name($token);
+        $params = extparams($token);
+        switch ($name) {
+            case 'PATRON':
+                if (!$isOperatorLastToken && $index != 0)
+                    array_push($operators, 'OR');
+
+                $patronDocumentsIndex = getPatronDocuments($params);
+
+                array_push($documentsIds, array_keys($patronDocumentsIndex));
+                array_push($documentsIndexs, $patronDocumentsIndex);
+
+                $isOperatorLastToken = false;
+                break;
+            case 'CADENA':
+                if (!$isOperatorLastToken && $index != 0)
+                    array_push($operators, 'OR');
+
+                $cadenaDocumentsIndex = getCadenaQueryDocuments($params);
+
+                array_push($documentsIds, array_keys($cadenaDocumentsIndex));
+                array_push($documentsIndexs, $cadenaDocumentsIndex);
+
+                $isOperatorLastToken = false;
+                break;
+            case in_array($name, ['AND', 'OR']):
+                if ($isOperatorLastToken)
+                    throw new Exception('No se puede tener dos peradores juntos en la query');
+
+                array_push($operators, $name);
+
+                $isOperatorLastToken = true;
+                break;
+            default:
+                if (!$isOperatorLastToken && $index != 0)
+                    array_push($operators, 'OR');
+
+                $normalDocumentsIndex = getNormalQueryDocuments($name);
+
+                array_push($documentsIds, array_keys($normalDocumentsIndex));
+                array_push($documentsIndexs, $normalDocumentsIndex);
+
+                $isOperatorLastToken = false;
+                break;
+        }
+        $index += 1;
+    }
+
+    $docsIdFiltered = processDocumentsWithOperators($documentsIds, $operators);
+
+
+    $resultIndexDocs = [];
+    foreach ($docsIdFiltered as $docID) {
+        foreach ($documentsIndexs as $docIndex) {
+            if (isset($docIndex[$docID]) && !isset($resultIndexDocs[$docID]))
+                $resultIndexDocs[$docID] = $docIndex[$docID];
+        }
+    }
+
+    $finalDataDocuments = fetchDocumentsIndex($resultIndexDocs);
+    return $finalDataDocuments;
+}
+
+
+/**
+ * Print description marked querys words.
+ */
+function printDescription($document)
+{
+    $description = $document['example'];
+    $query = $document['query'];
+
+    $description = str_ireplace($query, "<b>$query</b>", $description);
+
+    return $description;
+}
+
+/** Control form to upload document */
 if (isset($_POST['post_document'])) {
     indexDocument();
 }
 
-
+/** Control input search */
 $documents = [];
-
 if (isset($_GET['query'])) {
 
     $vectorQuery = getVectorFromQuery($_GET['query']);
-    $documents = getDocuments();
-
+    $documents = getDocumentsFromQuery($_GET['query']);
     $documents = setDocumentsScore($documents, $vectorQuery);
     $documents = array_sort($documents, 'score');
 }
@@ -427,7 +328,9 @@ if (isset($_GET['query'])) {
             echo ("<div class='row'>
             <h3>" . $doc['name'] . "</h3>
             <p>" . $doc['description'] . "</p>
-            <a href='url'>" . $doc['uri'] . "</a>
+            <i>" . printDescription($doc) . " </i>
+            <br>
+            <a href=" . $doc['uri'] . ">" . $doc['uri'] . "</a>
             <p>" . $doc['score'] . "</p>
             <p></p>
             </div>");
