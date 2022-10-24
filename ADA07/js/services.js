@@ -1,11 +1,11 @@
 function getFromPLOS(search) {
   return new Promise((resolve, reject) => {
-    fetch('http://api.plos.org/search?q=title:' + search)
+    fetch('http://api.plos.org/search?q=' + search)
       .then((response) => response.json())
       .then((data) => {
-        var max_score = data.response.maxScore;
-        var items = data.response.docs.map((item) => {
-          var temp = item;
+        let max_score = data.response.maxScore;
+        let items = data.response.docs.map((item) => {
+          let temp = item;
           item.type = 'PLOSAPI';
           item.n_score = item.score / max_score;
           return temp;
@@ -25,15 +25,18 @@ function getFromEuropean(search) {
     )
       .then((response) => response.json())
       .then((data) => {
-        var max_score = 0;
-        var items = data.items;
+        let max_score = 0;
+        let items = data.items;
 
+        if (items == undefined) {
+          return [];
+        }
         if (items && items[0].score) {
           max_score = items[0].score;
         }
 
         items = data.items.map((item) => {
-          var temp = item;
+          let temp = item;
           item.type = 'EuropeanAPI';
           item.n_score = item.score / max_score;
           return temp;
@@ -96,48 +99,80 @@ function getCardEuropean(doc) {
               </div>`;
 }
 function searchData() {
-  var query = getAllQueries();
-  console.log(query);
-  var responsePromises = getResponseFromAPIs(query);
+  getAllQueries().then((query) => {
+    let responsePromises = getResponseFromAPIs(query);
 
-  Promise.all(responsePromises)
-    .then((arrays) => {
-      var items = [];
-      arrays.forEach((arr) => {
-        items = items.concat(arr);
+    Promise.all(responsePromises)
+      .then((arrays) => {
+        let items = [];
+        arrays.forEach((arr) => {
+          items = items.concat(arr);
+        });
+        return printData(items);
+      })
+      .catch((error) => {
+        alert(error);
       });
-      console.log(items);
-      return printData(items);
-    })
-    .catch((error) => {
-      alert(error);
-    });
+  });
 }
 
-function getAllQueries() {
-  let query = '';
+async function getAllQueries() {
+  return new Promise((resolve, reject) => {
+    let queryInputs = [...document.getElementsByClassName('query-input')].map(
+      (e) => e.value
+    );
 
-  const queryInputs = [...document.getElementsByClassName('query-input')];
+    queryInputs = queryInputs.filter((a) => a != '');
 
-  queryInputs.forEach((input, idx) => {
-    const value = input.value;
-    if (value != '') {
-      if (idx > 0) query += ' AND ' + input.value;
-      else query += input.value;
+    if (queryInputs.length == 1) {
+      let query = queryInputs[0];
+      searchTerms(query).then((terms) => {
+        let termsQuery = '';
+        if (terms.length > 0) {
+          termsQuery = terms.slice(0, 5).reduce((x, y) => x + ' OR ' + y);
+          return resolve(query + ' OR ' + termsQuery);
+        } else {
+          return resolve(query);
+        }
+      });
     }
-  });
 
-  return query;
+    if (queryInputs.length > 1) {
+      let query = queryInputs.reduce(async (a, b) => {
+        const termsA = await searchTerms(a);
+        const termsB = await searchTerms(b);
+
+        let termsAQuery = '';
+        let termsBQuery = '';
+
+        let result = '';
+        if (termsA.length > 0) {
+          termsAQuery = termsA.slice(0, 5).reduce((x, y) => x + ' OR ' + y);
+          result += a + ' OR ' + termsAQuery;
+        } else {
+          result += a;
+        }
+        if (termsB.length > 0) {
+          termsBQuery = termsB.slice(0, 5).reduce((x, y) => x + ' OR ' + y);
+          result += ' AND ' + b + ' OR ' + termsBQuery;
+        } else {
+          result += ' AND ' + b;
+        }
+
+        return result;
+      });
+      return resolve(query);
+    }
+
+    return resolve('');
+  });
 }
 
 function getResponseFromAPIs(query) {
-  var isWithEuropean = document.getElementById('europeanaCB').checked;
-  var isWithPLOS = document.getElementById('PLOSCB').checked;
+  let isWithEuropean = document.getElementById('europeanaCB').checked;
+  let isWithPLOS = document.getElementById('PLOSCB').checked;
 
-  var promises = [];
-
-  console.log(isWithEuropean);
-  console.log(isWithPLOS);
+  let promises = [];
 
   if (isWithEuropean) promises.push(getFromEuropean(query));
   if (isWithPLOS) promises.push(getFromPLOS(query));
@@ -163,10 +198,9 @@ function printData(items) {
 }
 
 async function expandTerms(input) {
-  var query = input.value;
+  let query = input.value;
   searchTerms(query).then((words) => {
     autocomplete(input, words);
-    console.log(words);
   });
 }
 
@@ -216,18 +250,18 @@ function getInputSearch() {
             <button onclick="deleteInput(this)" class="col-md-1">x</button>
           </div>`;
 }
-/**AUTOCOMPLETE */
+
+/**AUTOCOMPLETE --REFERENCE W3SCHOOL*/
 function autocomplete(inp, arr) {
   /*the autocomplete function takes two arguments,
   the text field element and an array of possible autocompleted values:*/
-  var currentFocus;
+  let currentFocus;
   /*execute a function when someone writes in the text field:*/
 
-  var a,
+  let a,
     b,
     i,
     val = inp.value;
-  console.log(val);
   if (!val) {
     return false;
   }
@@ -265,18 +299,18 @@ function autocomplete(inp, arr) {
 
 /*execute a function presses a key on the keyboard:*/
 function addEventListener(e) {
-  var x = document.getElementById(this.id + 'autocomplete-list');
+  let x = document.getElementById(this.id + 'autocomplete-list');
   if (x) x = x.getElementsByTagName('div');
   if (e.keyCode == 40) {
     /*If the arrow DOWN key is pressed,
-        increase the currentFocus variable:*/
+        increase the currentFocus letiable:*/
     currentFocus++;
     /*and and make the current item more visible:*/
     addActive(x);
   } else if (e.keyCode == 38) {
     //up
     /*If the arrow UP key is pressed,
-        decrease the currentFocus variable:*/
+        decrease the currentFocus letiable:*/
     currentFocus--;
     /*and and make the current item more visible:*/
     addActive(x);
@@ -302,15 +336,15 @@ function addActive(x) {
 }
 function removeActive(x) {
   /*a function to remove the "active" class from all autocomplete items:*/
-  for (var i = 0; i < x.length; i++) {
+  for (let i = 0; i < x.length; i++) {
     x[i].classList.remove('autocomplete-active');
   }
 }
 function closeAllLists(elmnt) {
   /*close all autocomplete lists in the document,
     except the one passed as an argument:*/
-  var x = document.getElementsByClassName('autocomplete-items');
-  for (var i = 0; i < x.length; i++) {
+  let x = document.getElementsByClassName('autocomplete-items');
+  for (let i = 0; i < x.length; i++) {
     if (elmnt.parentNode == x[i].parentNode) {
       x[i].parentNode.removeChild(x[i]);
     }
