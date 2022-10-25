@@ -3,11 +3,15 @@ function getFromPLOS(search) {
     fetch('http://api.plos.org/search?q=' + search)
       .then((response) => response.json())
       .then((data) => {
+        if (data.response == undefined) return resolve([]);
         let max_score = data.response.maxScore;
         let items = data.response.docs.map((item) => {
-          let temp = item;
-          item.type = 'PLOSAPI';
-          item.n_score = item.score / max_score;
+          let temp = {};
+          temp.type = 'PLOSAPI';
+          temp.n_score = item.score / max_score;
+          temp.score = item.score;
+          temp.url = 'https://journals.plos.org/plosone/article?id=' + item.id;
+          temp.title = item.title_display;
           return temp;
         });
         return resolve(items);
@@ -28,17 +32,17 @@ function getFromEuropean(search) {
         let max_score = 0;
         let items = data.items;
 
-        if (items == undefined) {
-          return [];
-        }
-        if (items && items[0].score) {
-          max_score = items[0].score;
-        }
+        if (items == undefined) return resolve([]);
+
+        if (items.length > 0 && items[0].score) max_score = items[0].score;
 
         items = data.items.map((item) => {
-          let temp = item;
-          item.type = 'EuropeanAPI';
-          item.n_score = item.score / max_score;
+          let temp = {};
+          temp.type = 'EuropeanAPI';
+          temp.url = 'https://www.europeana.eu/es/item' + item.id;
+          temp.n_score = item.score / max_score;
+          temp.score = item.score;
+          temp.title = item.title[0];
           return temp;
         });
 
@@ -52,11 +56,11 @@ function parseJSON(response) {
     return text ? JSON.parse(text) : {};
   });
 }
-function searchTerms(query) {
+function searchTerms(query, number) {
   return new Promise((resolve, reject) => {
     fetch('https://api.datamuse.com/words?ml=' + query)
       .then((res) => res.json())
-      .then((data) => resolve(data.map((e) => e.word)))
+      .then((data) => resolve(data.map((e) => e.word).slice(0, number)))
       .catch((err) => reject(err));
   });
 }
@@ -67,8 +71,8 @@ function getCardPLOS(doc) {
                   <img src="img/plos_api.png" alt="" />
                   
                   <div class="text-content">
-                    <h4>${doc.title_display}</h4>
-                    <a href=${doc.id}>go to website</a>
+                    <h4>${doc.title}</h4>
+                    <a href="${doc.url}" target="_blank">go to website</a>
                     <p>score: ${doc.score}</p>
                     <p>Normalized score: ${doc.n_score}</p>
                   </div>
@@ -86,8 +90,8 @@ function getCardEuropean(doc) {
                   <img src="img/europeana_api.png" alt="" />
                   
                   <div class="text-content">
-                    <h4>${doc.title[0]}</h4>
-                    <a href=${doc.id}>go to website</a>
+                    <h4>${doc.title}</h4>
+                    <a href="${doc.url}" target="_blank">go to website</a>
                     <p>score: ${doc.score}</p>
                     <p>Normalized score: ${doc.n_score}</p>
                   </div>
@@ -116,8 +120,8 @@ function searchData() {
   });
 }
 
-async function getAllQueries() {
-  return new Promise((resolve, reject) => {
+function getAllQueries() {
+  return new Promise(async (resolve, reject) => {
     let queryInputs = [...document.getElementsByClassName('query-input')].map(
       (e) => e.value
     );
@@ -126,45 +130,38 @@ async function getAllQueries() {
 
     if (queryInputs.length == 1) {
       let query = queryInputs[0];
-      searchTerms(query).then((terms) => {
-        let termsQuery = '';
-        if (terms.length > 0) {
-          termsQuery = terms.slice(0, 5).reduce((x, y) => x + ' OR ' + y);
-          return resolve(query + ' OR ' + termsQuery);
-        } else {
-          return resolve(query);
-        }
-      });
+      const terms = await searchTerms(query, 5);
+      let termsQuery = '';
+      if (terms.length > 0) {
+        terms.forEach((x) => (termsQuery += ` OR '${x}'`));
+        return resolve(`'${query}'` + termsQuery);
+      } else {
+        return resolve(query);
+      }
     }
 
     if (queryInputs.length > 1) {
-      let query = queryInputs.reduce(async (a, b) => {
-        const termsA = await searchTerms(a);
-        const termsB = await searchTerms(b);
+      var query = '';
+      for (let idx = 0; idx < queryInputs.length; idx++) {
+        let a = queryInputs[idx];
+        const terms = await searchTerms(a, 5);
 
-        let termsAQuery = '';
-        let termsBQuery = '';
-
-        let result = '';
-        if (termsA.length > 0) {
-          termsAQuery = termsA.slice(0, 5).reduce((x, y) => x + ' OR ' + y);
-          result += a + ' OR ' + termsAQuery;
+        let termsQuery = '';
+        if (terms.length > 0) {
+          terms.forEach((x) => (termsQuery += ` OR '${x}'`));
+          query += `'${a}'` + termsQuery;
         } else {
-          result += a;
-        }
-        if (termsB.length > 0) {
-          termsBQuery = termsB.slice(0, 5).reduce((x, y) => x + ' OR ' + y);
-          result += ' AND ' + b + ' OR ' + termsBQuery;
-        } else {
-          result += ' AND ' + b;
+          query += `'${a}'`;
         }
 
-        return result;
-      });
+        if (idx < queryInputs.length - 1) query += ' AND ';
+      }
+
+      console.log(query);
       return resolve(query);
     }
 
-    return resolve('');
+    return reject(error);
   });
 }
 
@@ -199,7 +196,7 @@ function printData(items) {
 
 async function expandTerms(input) {
   let query = input.value;
-  searchTerms(query).then((words) => {
+  searchTerms(query, 10).then((words) => {
     autocomplete(input, words);
   });
 }

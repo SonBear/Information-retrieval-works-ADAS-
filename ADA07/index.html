@@ -16,80 +16,83 @@
   </head>
 
   <body>
-    <div class="wrap">
-      <header id="header">
-        <div class="container">
-          <div class="row">
-            <div class="col-md-12">
-              <a href="index.html"
-                ><div class="logo">
-                  <img src="img/logo.dpng" alt="Venue Logo" /></div
-              ></a>
-            </div>
-          </div>
+    <div class="container-fluid">
+      <header class="row">
+        <div class="col-md-3">
+          <a href="index.html"
+            ><div id="logo">
+              <img
+                src="img/logo.png"
+                alt="logo"
+                style="width: 120px; height: 100px"
+              /></div
+          ></a>
+        </div>
+        <div class="col">
+          <section id="banner">
+            <h1>Emmanuel Chablé</h1>
+            <h2>Búsqueda y recuperación de información</h2>
+          </section>
         </div>
       </header>
+
+      <div class="submit-form">
+        <p>Escribe la busqueda de documentos que desees realizar....</p>
+        <div class="row" id="input-container">
+          <div class="col-md-3">
+            <div class="row input-term">
+              <input
+                name="search"
+                type="text"
+                class="form-control col-md-6 query-input"
+                placeholder="buscar..."
+                oninput="expandTerms(this)"
+                required
+              />
+            </div>
+          </div>
+        </div>
+        <button class="btn" onclick="addInputSearch(this)">Añadir AND</button>
+
+        <button class="btn" onclick="searchData()">Search Now</button>
+      </div>
+      <section class="popular-places" id="searching-motors">
+        <div class="container-fluid">
+          <div class="row">
+            <div class="col-md-12">
+              <div class="section-heading">
+                <h2>Results:</h2>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-2">
+              <div>
+                <input type="checkbox" id="europeanaCB" checked />
+                Europeana searcher
+              </div>
+              <div>
+                <input type="checkbox" id="PLOSCB" checked />
+                PLOS searcher
+              </div>
+            </div>
+            <div class="col">
+              <div id="cards-container" class="d-flex flex-wrap"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div class="container">
+          <div class="row">
+            <div class="col-md-5">
+              <div class=""></div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
-
-    <section class="banner" id="top">
-      <div class="container"></div>
-    </section>
-    <div class="submit-form">
-      <div class="row" id="input-container">
-        <div class="col-md-3">
-          <div class="row input-term">
-            <input
-              name="search"
-              type="text"
-              class="form-control col-md-6 query-input"
-              placeholder="search..."
-              oninput="expandTerms(this)"
-              required
-            />
-          </div>
-        </div>
-      </div>
-      <button class="btn" onclick="addInputSearch(this)">add term input</button>
-
-      <button class="btn" onclick="searchData()">Search Now</button>
-    </div>
-    <section class="popular-places" id="popular">
-      <div class="container-fluid">
-        <div class="row">
-          <div class="col-md-12">
-            <div class="section-heading">
-              <h2>Results:</h2>
-            </div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col-md-2">
-            <div>
-              <input type="checkbox" id="europeanaCB" checked />
-              Europeana searcher
-            </div>
-            <div>
-              <input type="checkbox" id="PLOSCB" checked />
-              PLOS searcher
-            </div>
-          </div>
-          <div class="col">
-            <div id="cards-container" class="d-flex flex-wrap"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <footer>
-      <div class="container">
-        <div class="row">
-          <div class="col-md-5">
-            <div class=""></div>
-          </div>
-        </div>
-      </div>
-    </footer>
-
     <script
       src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
       integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
